@@ -59,7 +59,7 @@
   height: 2px;
   background-color: var(--accent);
   position: absolute;
-  bottom: -0.75rem;
+  bottom: -0.3rem;
   left: 0;
 }
 
@@ -69,7 +69,7 @@
   height: 2px;
   background-color: var(--accent);
   position: absolute;
-  bottom: -0.75rem;
+  bottom: -0.3rem;
   left: 50%;
   transform: translateX(-50%);
 }

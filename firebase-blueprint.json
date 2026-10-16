@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "rsvp": {
+      "title": "RSVP",
+      "description": "Family RSVP record for the Lahi Sanctuary thanksgiving service",
+      "type": "object",
+      "properties": {
+        "familyName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Family or attendee name"
+        },
+        "headcount": {
+          "type": "number",
+          "description": "Number of family members attending"
+        },
+        "contact": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Contact number or email"
+        },
+        "prayer": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional prayer request"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of RSVP"
+        }
+      },
+      "required": ["familyName", "headcount", "contact"]
+    },
+    "testimony": {
+      "title": "Testimony",
+      "description": "Gratitude wall note or testimony",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Name of sender"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Gratitude message"
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Date string"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp"
+        }
+      },
+      "required": ["name", "message"]
+    }
+  },
+  "firestore": {
+    "/rsvps/{rsvpId}": {
+      "schema": "rsvp",
+      "description": "Collection of attendee RSVPs"
+    },
+    "/testimonies/{testimonyId}": {
+      "schema": "testimony",
+      "description": "Collection of gratitude notes and testimonies"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /rsvps/{rsvpId} {
+      allow read, list: if true;
+      allow create, update: if request.resource.data.familyName is string 
+                            && request.resource.data.familyName.size() <= 100
+                            && request.resource.data.headcount is number 
+                            && request.resource.data.headcount > 0
+                            && request.resource.data.contact is string 
+                            && request.resource.data.contact.size() <= 50;
+      allow delete: if true;
+    }
+
+    match /testimonies/{testimonyId} {
+      allow read, list: if true;
+      allow create, update: if request.resource.data.name is string 
+                            && request.resource.data.name.size() <= 100
+                            && request.resource.data.message is string 
+                            && request.resource.data.message.size() <= 1000;
+      allow delete: if true;
+    }
+  }
+}

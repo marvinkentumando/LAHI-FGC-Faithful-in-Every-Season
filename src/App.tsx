@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Printer,
   Volume2,
+  VolumeX,
   Copy,
   Check,
   Send,
@@ -193,6 +194,9 @@ interface GratitudeNote {
   date: string;
 }
 
+import { db } from './firebase';
+import { collection, addDoc, onSnapshot, query } from 'firebase/firestore';
+
 const INITIAL_TESTIMONIES: GratitudeNote[] = [
   {
     id: '1',
@@ -213,6 +217,15 @@ const INITIAL_TESTIMONIES: GratitudeNote[] = [
     date: 'October 2026'
   }
 ];
+
+const INITIAL_RSVPS = [
+  { name: 'Barrios Family', headcount: 5, phone: '09123456789', prayer: 'Thankful for God\'s grace and healing.', timestamp: '2026-10-15T10:00:00Z' },
+  { name: 'Tito Family', headcount: 4, phone: '09198765432', prayer: 'Abundant blessings for the church ministry.', timestamp: '2026-10-15T11:30:00Z' },
+  { name: 'De Asis Family', headcount: 3, phone: '09171112233', prayer: 'Provision and guidance.', timestamp: '2026-10-16T08:15:00Z' },
+  { name: 'Estigoy Family', headcount: 2, phone: '09184445566', prayer: 'Joyful celebration.', timestamp: '2026-10-16T09:45:00Z' },
+  { name: 'Perlas Family', headcount: 4, phone: '09223334455', prayer: 'Faithful in every season.', timestamp: '2026-10-16T14:20:00Z' }
+];
+
 
 // Crisp realistic wax breaking sound
 function playWaxCrackSound() {
@@ -305,6 +318,274 @@ function playChimeSound() {
   }
 }
 
+// Ambient Hymn Soundscape Generator using Web Audio API
+class AmbientHymnPlayer {
+  private ctx: AudioContext | null = null;
+  private timerId: number | null = null;
+  private isPlaying = false;
+  private chordIndex = 0;
+  private chords = [
+    [261.63, 329.63, 392.00, 523.25], // C major
+    [220.00, 261.63, 329.63, 392.00], // A minor
+    [174.61, 220.00, 261.63, 329.63], // F major
+    [196.00, 246.94, 293.66, 392.00]  // G major
+  ];
+
+  start() {
+    if (this.isPlaying) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      this.ctx = new AudioCtx();
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+      this.isPlaying = true;
+      this.playNextChord();
+      this.timerId = window.setInterval(() => {
+        this.playNextChord();
+      }, 5500);
+    } catch {
+      // Audio context error
+    }
+  }
+
+  stop() {
+    this.isPlaying = false;
+    if (this.timerId !== null) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+    if (this.ctx && this.ctx.state !== 'closed') {
+      try {
+        this.ctx.close();
+      } catch {
+        // ignore
+      }
+      this.ctx = null;
+    }
+  }
+
+  private playNextChord() {
+    if (!this.isPlaying || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const chord = this.chords[this.chordIndex];
+    this.chordIndex = (this.chordIndex + 1) % this.chords.length;
+
+    chord.forEach((freq, i) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = i % 2 === 0 ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(650, now);
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.045, now + 0.8);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 5.2);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now + i * 0.08);
+      osc.stop(now + 5.3);
+    });
+  }
+}
+
+const hymnPlayer = new AmbientHymnPlayer();
+
+function ScrollRevealCard({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const domRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            if (domRef.current) {
+              observer.unobserve(domRef.current);
+            }
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = domRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      ref={domRef}
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`transform transition-all duration-700 ease-out ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function InteractiveTiltCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const [transformStyle, setTransformStyle] = React.useState('');
+  const [glareStyle, setGlareStyle] = React.useState({ x: 50, y: 50, opacity: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const rX = -((mouseY / height) * 16 - 8);
+    const rY = (mouseX / width) * 16 - 8;
+
+    setTransformStyle(`perspective(1000px) rotateX(${rX.toFixed(2)}deg) rotateY(${rY.toFixed(2)}deg) scale3d(1.01, 1.01, 1.01)`);
+    setGlareStyle({
+      x: (mouseX / width) * 100,
+      y: (mouseY / height) * 100,
+      opacity: 0.12
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setTransformStyle('perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)');
+    setGlareStyle(prev => ({ ...prev, opacity: 0 }));
+  };
+
+  React.useEffect(() => {
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (!cardRef.current) return;
+      const beta = e.beta; // front/back tilt (-180 to 180)
+      const gamma = e.gamma; // left/right tilt (-90 to 90)
+
+      if (beta !== null && gamma !== null) {
+        const rX = Math.max(-8, Math.min(8, beta / 5));
+        const rY = Math.max(-8, Math.min(8, gamma / 5));
+        setTransformStyle(`perspective(1000px) rotateX(${rX.toFixed(2)}deg) rotateY(${rY.toFixed(2)}deg) scale3d(1, 1, 1)`);
+      }
+    };
+
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+
+    return () => {
+      if (window.DeviceOrientationEvent) {
+        window.removeEventListener('deviceorientation', handleOrientation, true);
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={`transition-transform duration-150 ease-out will-change-transform relative overflow-hidden ${className}`}
+      style={{
+        transformStyle: 'preserve-3d',
+        transform: transformStyle || 'perspective(1000px) rotateX(0deg) rotateY(0deg)'
+      }}
+    >
+      {children}
+      <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-300 z-30 rounded-[inherit]"
+        style={{
+          background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.7) 0%, transparent 75%)`,
+          opacity: glareStyle.opacity
+        }}
+      />
+    </div>
+  );
+}
+
+function LiveCountdown() {
+  const [timeLeft, setTimeLeft] = React.useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isStarted: false });
+
+  React.useEffect(() => {
+    const targetDate = new Date('2026-10-31T09:00:00');
+
+    const updateTimer = () => {
+      const now = new Date();
+      const diff = targetDate.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isStarted: true });
+      } else {
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((diff / 1000 / 60) % 60);
+        const seconds = Math.floor((diff / 1000) % 60);
+        setTimeLeft({ days, hours, minutes, seconds, isStarted: false });
+      }
+    };
+
+    updateTimer();
+    const timerId = setInterval(updateTimer, 1000);
+    return () => clearInterval(timerId);
+  }, []);
+
+  if (timeLeft.isStarted) {
+    return (
+      <div className="my-6 p-4 bg-[#F4E8E8] border border-[#B81D24]/30 text-[#B81D24] text-center rounded-none shadow-sm animate-pulse">
+        <span className="meta-mono uppercase text-xs tracking-widest block font-semibold mb-1">Live Status</span>
+        <span className="font-cormorant text-2xl sm:text-3xl font-semibold">Celebration has begun!</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-6 p-4 sm:p-5 bg-stone-50 border border-[rgba(184,29,36,0.2)] rounded-none">
+      <div className="flex items-center justify-between mb-3">
+        <span className="meta-mono text-[0.65rem] uppercase tracking-wider text-[#B81D24] font-semibold flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-[#B81D24] animate-ping inline-block"></span>
+          Countdown to Celebration
+        </span>
+        <span className="meta-mono text-[0.6rem] text-stone-500">October 31, 2026 • 9:00 AM</span>
+      </div>
+      <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="bg-white p-2.5 border border-stone-200">
+          <div className="font-cormorant text-xl sm:text-3xl font-bold text-[#2D0A0A]">{String(timeLeft.days).padStart(2, '0')}</div>
+          <div className="meta-mono text-[0.55rem] uppercase tracking-wider text-stone-500 mt-0.5">Days</div>
+        </div>
+        <div className="bg-white p-2.5 border border-stone-200">
+          <div className="font-cormorant text-xl sm:text-3xl font-bold text-[#2D0A0A]">{String(timeLeft.hours).padStart(2, '0')}</div>
+          <div className="meta-mono text-[0.55rem] uppercase tracking-wider text-stone-500 mt-0.5">Hours</div>
+        </div>
+        <div className="bg-white p-2.5 border border-stone-200">
+          <div className="font-cormorant text-xl sm:text-3xl font-bold text-[#2D0A0A]">{String(timeLeft.minutes).padStart(2, '0')}</div>
+          <div className="meta-mono text-[0.55rem] uppercase tracking-wider text-stone-500 mt-0.5">Mins</div>
+        </div>
+        <div className="bg-white p-2.5 border border-stone-200">
+          <div className="font-cormorant text-xl sm:text-3xl font-bold text-[#2D0A0A]">{String(timeLeft.seconds).padStart(2, '0')}</div>
+          <div className="meta-mono text-[0.55rem] uppercase tracking-wider text-stone-500 mt-0.5">Secs</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   // Envelope Stage: 'closed' | 'opening' | 'unfolded' | 'unveiled'
   const [envelopeStage, setEnvelopeStage] = useState<'closed' | 'opening' | 'unfolded' | 'unveiled'>('closed');
@@ -336,9 +617,76 @@ export default function App() {
     });
   };
 
+  React.useEffect(() => {
+    if (envelopeStage === 'unveiled' && ambienceEnabled) {
+      hymnPlayer.start();
+    } else {
+      hymnPlayer.stop();
+    }
+    return () => {
+      hymnPlayer.stop();
+    };
+  }, [ambienceEnabled, envelopeStage]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [shared, setShared] = useState(false);
+
+  // Admin / Usher Attendance Tally Modal State
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [adminAuthenticated, setAdminAuthenticated] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [adminPinError, setAdminPinError] = useState(false);
+  const [adminSearch, setAdminSearch] = useState('');
+  const [, setRsvpsRefreshKey] = useState(0);
+
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      const isHashAdmin = window.location.hash === '#admin' || window.location.search.includes('admin=true');
+      setIsAdminOpen(isHashAdmin);
+      if (isHashAdmin) {
+        setRsvpsRefreshKey(k => k + 1);
+      }
+    };
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, []);
+
+  const handleExportCsv = () => {
+    const headers = ['Family Name', 'Headcount', 'Contact Number', 'Prayer / Notes', 'Timestamp'];
+    const rows = rsvps.map((r: { name?: string; headcount?: number; phone?: string; prayer?: string; timestamp?: string }) => [
+      `"${(r.name || '').replace(/"/g, '""')}"`,
+      r.headcount || 1,
+      `"${(r.phone || '').replace(/"/g, '""')}"`,
+      `"${(r.prayer || '').replace(/"/g, '""')}"`,
+      `"${r.timestamp || ''}"`
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'Lahi-Thanksgiving-Attendance-2026.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const [rsvps, setRsvps] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('thanksgiving_rsvps');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_RSVPS;
+  });
 
   const [notes, setNotes] = useState<GratitudeNote[]>(() => {
     try {
@@ -348,6 +696,44 @@ export default function App() {
       return INITIAL_TESTIMONIES;
     }
   });
+
+  // Real-time Firestore Sync
+  React.useEffect(() => {
+    try {
+      const qRsvps = query(collection(db, 'rsvps'));
+      const unsubRsvps = onSnapshot(qRsvps, (snapshot) => {
+        if (!snapshot.empty) {
+          const loaded = snapshot.docs.map(doc => doc.data());
+          setRsvps(loaded);
+          try {
+            localStorage.setItem('thanksgiving_rsvps', JSON.stringify(loaded));
+          } catch {}
+        }
+      }, (err) => {
+        console.error('Firestore rsvps sync error:', err);
+      });
+
+      const qTestimonies = query(collection(db, 'testimonies'));
+      const unsubTestimonies = onSnapshot(qTestimonies, (snapshot) => {
+        if (!snapshot.empty) {
+          const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GratitudeNote));
+          setNotes(loaded);
+          try {
+            localStorage.setItem('thanksgiving_notes_2026', JSON.stringify(loaded));
+          } catch {}
+        }
+      }, (err) => {
+        console.error('Firestore testimonies sync error:', err);
+      });
+
+      return () => {
+        unsubRsvps();
+        unsubTestimonies();
+      };
+    } catch {
+      // Offline fallback
+    }
+  }, []);
 
   // RSVP Form State
   const [rsvpFamilyName, setRsvpFamilyName] = useState('');
@@ -451,7 +837,7 @@ export default function App() {
     }
   };
 
-  const handleRsvpSubmit = (e: React.FormEvent) => {
+  const handleRsvpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rsvpFamilyName.trim()) return;
 
@@ -462,20 +848,23 @@ export default function App() {
       prayer: rsvpPrayer,
       timestamp: new Date().toISOString()
     };
+
+    const updatedRsvps = [newRsvp, ...rsvps];
+    setRsvps(updatedRsvps);
     try {
-      const existing = JSON.parse(
-        localStorage.getItem('thanksgiving_rsvps') || '[]'
-      );
-      existing.push(newRsvp);
-      localStorage.setItem('thanksgiving_rsvps', JSON.stringify(existing));
-    } catch {
-      // Storage fallback
+      localStorage.setItem('thanksgiving_rsvps', JSON.stringify(updatedRsvps));
+    } catch {}
+
+    try {
+      await addDoc(collection(db, 'rsvps'), newRsvp);
+    } catch (err) {
+      console.error('Error saving RSVP to Firestore:', err);
     }
 
     setRsvpSuccess(true);
   };
 
-  const handleAddNote = (e: React.FormEvent) => {
+  const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNoteName.trim() || !newNoteMessage.trim()) return;
 
@@ -493,6 +882,18 @@ export default function App() {
     } catch {
       // Ignore
     }
+
+    try {
+      await addDoc(collection(db, 'testimonies'), {
+        name: note.name,
+        message: note.message,
+        date: note.date,
+        createdAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error('Error saving testimony to Firestore:', err);
+    }
+
     setNewNoteName('');
     setNewNoteMessage('');
   };
@@ -989,531 +1390,553 @@ export default function App() {
       {/* MAIN CONTAINER */}
       <main className="max-w-[1100px] mx-auto px-4 sm:px-8">
         {/* HERO SECTION: Fully Responsive Grid */}
-        <section
-          id="invitation"
-          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center py-8 sm:py-14 lg:py-20 border-b border-[rgba(184,29,36,0.15)]"
-        >
-          {/* Left Column (7 cols on desktop, full width on mobile) */}
-          <div className="lg:col-span-7">
-            <h1
-              className="font-cormorant text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-normal leading-tight sm:leading-[0.92] tracking-tight text-[#2D0A0A] mb-4 sm:mb-6"
-              style={{ textWrap: 'balance' }}
-            >
-              Faithful in Every Season
-            </h1>
-
-            <p className="text-sm sm:text-lg text-[#2D0A0A]/80 leading-relaxed font-light mb-6 max-w-xl">
-              You are cordially invited to our Annual Thanksgiving Day Celebration.
-              Let us lift our praise, witness His unshakeable mercies, and honor His
-              holy name together as one church family.
-            </p>
-
-            {/* Quick Scripture Excerpt */}
-            <blockquote className="font-cormorant italic text-base sm:text-xl text-[#2D0A0A]/90 border-l-2 border-[#B81D24] pl-3.5 sm:pl-4 py-1 mb-6 sm:mb-8 max-w-lg">
-              “They are new every morning: great is thy faithfulness.”
-              <span className="block not-italic meta-mono text-[#B81D24] text-[0.6rem] sm:text-[0.68rem] mt-1.5">
-                Lamentations 3:22–23
-              </span>
-            </blockquote>
-
-            {/* Responsive Action Buttons (Full width on mobile, inline on desktop) */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-              <a href="#rsvp" className="btn-crimson w-full sm:w-auto text-center">
-                Confirm Attendance
-              </a>
-              <a href="#program" className="btn-crimson-outline w-full sm:w-auto text-center">
-                View Order of Service
-              </a>
-              <button
-                onClick={handleReplayEnvelope}
-                className="btn-crimson-outline text-stone-600 border-stone-300 hover:border-[#B81D24] w-full sm:w-auto"
-                title="View animated invitation envelope again"
+        <ScrollRevealCard>
+          <section
+            id="invitation"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center py-8 sm:py-14 lg:py-20 border-b border-[rgba(184,29,36,0.15)]"
+          >
+            {/* Left Column (7 cols on desktop, full width on mobile) */}
+            <div className="lg:col-span-7">
+              <h1
+                className="font-cormorant text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-normal leading-tight sm:leading-[0.92] tracking-tight text-[#2D0A0A] mb-4 sm:mb-6"
+                style={{ textWrap: 'balance' }}
               >
-                <Mail className="w-3.5 h-3.5 text-[#B81D24]" />
-                <span>Envelope Intro</span>
-              </button>
-            </div>
+                Faithful in Every Season
+              </h1>
 
-            {/* Key Speaker, Date & Time, and Where Details */}
-            <div className="mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-[rgba(184,29,36,0.15)] grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-[#2D0A0A]/70">
-              <div>
-                <span className="meta-mono block text-[#2D0A0A]/50 mb-0.5 text-[0.55rem]">Speaker</span>
-                <span className="font-semibold text-[#2D0A0A]">Ptr. Kimuel Tito</span>
-              </div>
-              <div className="sm:border-l border-stone-300 sm:pl-4">
-                <span className="meta-mono block text-[#2D0A0A]/50 mb-0.5 text-[0.55rem]">Date and Time</span>
-                <span className="font-semibold text-[#2D0A0A]">October 31, 2026 • 9:00 AM</span>
-              </div>
-              <div className="sm:border-l border-stone-300 sm:pl-4">
-                <span className="meta-mono block text-[#2D0A0A]/50 mb-0.5 text-[0.55rem]">Where</span>
-                <span className="font-semibold text-[#2D0A0A]">Lahi Foursquare Gospel Church</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: 4/5 Aspect Ratio Framed Graphic (Responsive Sizing) */}
-          <div className="lg:col-span-5 flex justify-center mt-6 lg:mt-0">
-            <div
-              className="w-full max-w-[320px] sm:max-w-[380px] relative aspect-[4/5] bg-[#F4E8E8] border-2 border-[#B81D24] overflow-hidden shadow-lg"
-              style={{ borderRadius: 0 }}
-            >
-              <img
-                src="/src/assets/images/church_thanksgiving_hero_1792160970138.jpg"
-                alt="Sanctuary prepared for Thanksgiving"
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover object-center filter contrast-[1.05]"
-              />
-              <div className="absolute bottom-0 inset-x-0 bg-[#2D0A0A]/85 backdrop-blur-xs text-white p-3.5 sm:p-4 border-t border-[#B81D24]/40">
-                <div className="meta-mono text-amber-200 text-[0.55rem] sm:text-[0.6rem] mb-0.5">
-                  Lahi Foursquare Gospel Church
-                </div>
-                <div className="font-cormorant text-base sm:text-lg font-semibold leading-tight">
-                  Thanksgiving Sanctuary
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* INTERACTIVE ACTION STRIP: Calendar & Sharing (Touch-Friendly Responsive Grid) */}
-        <section
-          id="interactive-tools"
-          className="py-6 sm:py-8 border-b border-[rgba(184,29,36,0.15)] grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
-        >
-          <a
-            href={googleCalendarUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between group min-h-[48px]"
-          >
-            <div>
-              <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Google Calendar</div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
-                Add to Calendar
-              </div>
-            </div>
-            <ExternalLink className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
-          </a>
-
-          <button
-            onClick={handleDownloadICS}
-            className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between text-left group min-h-[48px]"
-          >
-            <div>
-              <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Apple & Outlook</div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
-                Download .ICS
-              </div>
-            </div>
-            <BookmarkCheck className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
-          </button>
-
-          <button
-            onClick={handleShare}
-            className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between text-left group min-h-[48px]"
-          >
-            <div>
-              <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Community Link</div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
-                {shared ? 'Link Copied to Clipboard!' : 'Share Invitation'}
-              </div>
-            </div>
-            <Share2 className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
-          </button>
-        </section>
-
-        {/* SCRIPTURE & THEME FOCUS */}
-        <section id="scripture" className="py-12 sm:py-16 border-b border-[rgba(184,29,36,0.15)]">
-          <div className="max-w-3xl mx-auto text-center px-2">
-            <div className="meta-mono text-[#B81D24] mb-2 sm:mb-3">Scripture Theme</div>
-            <h2 className="section-accent-title-center font-cormorant text-3xl sm:text-5xl font-normal text-[#2D0A0A] mb-6 sm:mb-8 pb-3">
-              Lamentations 3:22–23
-            </h2>
-
-            <p className="font-cormorant italic text-xl sm:text-3xl text-[#2D0A0A] leading-relaxed mb-4 sm:mb-6">
-              “It is the Lord’s mercies that we are not consumed, because his
-              compassions fail not. They are new every morning: great is thy
-              faithfulness.”
-            </p>
-
-            <p className="text-xs sm:text-base text-[#2D0A0A]/70 leading-relaxed font-light max-w-xl mx-auto mb-6 sm:mb-8">
-              In joy and hardship alike, God’s goodness has upheld every family at
-              Lahi Foursquare Gospel Church. As we gather on October 31, we declare
-              His enduring faithfulness across every chapter of our lives.
-            </p>
-
-            <button
-              onClick={handleSpeechToggle}
-              className="inline-flex items-center gap-2 px-4 py-2.5 border border-[#B81D24] text-xs font-mono uppercase tracking-wider text-[#B81D24] hover:bg-[#F4E8E8] transition-colors min-h-[44px]"
-            >
-              <Volume2 className="w-4 h-4 shrink-0" />
-              <span>{isPlayingScripture ? 'Stop Audio' : 'Listen to Scripture Recitation'}</span>
-            </button>
-          </div>
-        </section>
-
-        {/* RESOURCE SPEAKER SPOTLIGHT */}
-        <section id="speaker" className="py-12 sm:py-16 border-b border-[rgba(184,29,36,0.15)]">
-          <div className="p-6 sm:p-12 border border-[rgba(184,29,36,0.2)] bg-white">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-center">
-              <div className="md:col-span-4 border-b md:border-b-0 md:border-r border-[rgba(184,29,36,0.2)] pb-6 md:pb-0 md:pr-8">
-                <div className="meta-mono text-[#B81D24] mb-1">Resource Speaker</div>
-                <h3 className="font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] mb-1 sm:mb-2">
-                  Ptr. Kimuel Tito
-                </h3>
-                <p className="text-xs uppercase tracking-wider font-mono text-[#2D0A0A]/60">
-                  Guest Minister of the Word
-                </p>
-              </div>
-
-              <div className="md:col-span-8 md:pl-4">
-                <h4 className="meta-mono text-[#2D0A0A]/60 mb-2">Sermon Exhortation</h4>
-                <p className="text-xs sm:text-base text-[#2D0A0A]/85 leading-relaxed font-light mb-4">
-                  We look forward to receiving the Word through Pastor Kimuel Tito,
-                  unpacking God's providential grace and guidance under our theme
-                  <em> “Faithful in Every Season”</em>. The message will be preceded by
-                  a special choral number by the CMS Students.
-                </p>
-                <div className="flex flex-wrap items-center gap-3 sm:gap-6 meta-mono text-[#B81D24] text-[0.6rem] sm:text-xs">
-                  <span>Item 10 in Order of Service</span>
-                  <span>·</span>
-                  <span>Plaque & Token of Honor</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ORDER OF SERVICE (PROGRAM FLOW): Responsive 2-Column Grid */}
-        <section id="program" className="py-12 sm:py-16 border-b border-[rgba(184,29,36,0.15)]">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 sm:mb-10">
-            <div>
-              <div className="meta-mono text-[#B81D24] mb-1 sm:mb-2">Complete Schedule</div>
-              <h2 className="section-accent-title font-cormorant text-3xl sm:text-5xl font-normal text-[#2D0A0A] pb-3">
-                Order of Service
-              </h2>
-              <p className="text-xs sm:text-sm text-[#2D0A0A]/70 mt-2 sm:mt-3 font-light">
-                Presided by Master of Ceremonies: <strong>Rubelyn Estigoy</strong>
+              <p className="text-sm sm:text-lg text-[#2D0A0A]/80 leading-relaxed font-light mb-6 max-w-xl">
+                You are cordially invited to our Annual Thanksgiving Day Celebration.
+                Let us lift our praise, witness His unshakeable mercies, and honor His
+                holy name together as one church family.
               </p>
-            </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => window.print()}
-                className="btn-crimson-outline text-[0.65rem] py-2 px-3 min-h-[44px]"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print Schedule</span>
-              </button>
-            </div>
-          </div>
+              {/* Quick Scripture Excerpt */}
+              <blockquote className="font-cormorant italic text-base sm:text-xl text-[#2D0A0A]/90 border-l-2 border-[#B81D24] pl-3.5 sm:pl-4 py-1 mb-6 sm:mb-8 max-w-lg">
+                “They are new every morning: great is thy faithfulness.”
+                <span className="block not-italic meta-mono text-[#B81D24] text-[0.6rem] sm:text-[0.68rem] mt-1.5">
+                  Lamentations 3:22–23
+                </span>
+              </blockquote>
 
-          {/* Search Toolbar */}
-          <div className="mb-6 sm:mb-8 flex justify-end">
-            <div className="relative w-full sm:w-[280px]">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search program or participant..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-base sm:text-xs border border-stone-300 focus:border-[#B81D24] outline-none bg-white font-mono min-h-[44px]"
-              />
-            </div>
-          </div>
+              {/* Live Event Countdown Timer */}
+              <LiveCountdown />
 
-          {/* TWO-COLUMN PROGRAM GRID AS SPECIFIED IN VARIATION 4 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 lg:gap-x-12 gap-y-6 sm:gap-y-8">
-            {filteredProgram.map((item) => (
-              <div
-                key={item.id}
-                className="border-t border-[rgba(184,29,36,0.25)] pt-3.5 sm:pt-4 flex flex-col justify-between group hover:border-[#B81D24] transition-colors"
-              >
-                <div>
-                  <div className="meta-mono text-[#B81D24] mb-1 text-[0.6rem] sm:text-[0.65rem]">
-                    {String(item.id).padStart(2, '0')}
-                  </div>
-                  <h3 className="font-cormorant text-xl sm:text-2xl font-semibold text-[#2D0A0A] group-hover:text-[#B81D24] transition-colors leading-tight">
-                    {item.title}
-                  </h3>
-                  <p className="text-xs text-[#2D0A0A]/60 font-light mt-1">
-                    {item.description}
-                  </p>
-                </div>
-                <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center justify-between text-xs">
-                  <span className="meta-mono text-[#2D0A0A]/50 text-[0.55rem] sm:text-[0.6rem]">Assigned:</span>
-                  <span className="font-medium text-[#2D0A0A] text-right">{item.assigned}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {filteredProgram.length === 0 && (
-            <div className="p-8 sm:p-12 text-center text-stone-500 text-sm font-mono">
-              No service parts found matching "{searchQuery}".
-            </div>
-          )}
-        </section>
-
-        {/* RSVP SECTION: Responsive Form Layout */}
-        <section id="rsvp" className="py-12 sm:py-16 bg-white border border-[rgba(184,29,36,0.2)] p-6 sm:p-12 my-10 sm:my-16 shadow-xs">
-          <div className="max-w-2xl">
-            <div className="meta-mono text-[#B81D24] mb-2">Attendance Confirmation</div>
-            <h2 className="section-accent-title font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] mb-3 sm:mb-4 pb-3">
-              RSVP
-            </h2>
-            <p className="text-xs sm:text-sm text-[#2D0A0A]/70 font-light mb-6 sm:mb-8">
-              Please register your family's headcount in advance to help our hospitality
-              and fellowship committee prepare adequate seating and lunch servings.
-            </p>
-
-            {rsvpSuccess ? (
-              <div className="p-6 sm:p-8 border-2 border-[#B81D24] bg-[#F4E8E8]/40 space-y-4">
-                <div className="flex items-center gap-3 text-[#B81D24]">
-                  <CheckCircle2 className="w-6 h-6 shrink-0" />
-                  <h3 className="font-cormorant text-2xl font-bold">
-                    Attendance Registered
-                  </h3>
-                </div>
-                <p className="text-xs sm:text-sm text-[#2D0A0A]/85 leading-relaxed font-light">
-                  Thank you, <strong>{rsvpFamilyName}</strong>. Your confirmation for{' '}
-                  <strong>{rsvpHeadcount} attendee(s)</strong> has been recorded for
-                  October 31, 2026 at Lahi Foursquare Gospel Church.
-                </p>
+              {/* Responsive Action Buttons (Full width on mobile, inline on desktop) */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                <a href="#rsvp" className="btn-crimson w-full sm:w-auto text-center">
+                  Confirm Attendance
+                </a>
+                <a href="#program" className="btn-crimson-outline w-full sm:w-auto text-center">
+                  View Order of Service
+                </a>
                 <button
-                  onClick={() => setRsvpSuccess(false)}
-                  className="meta-mono text-xs text-[#B81D24] underline hover:text-[#96161C] pt-2 block min-h-[44px]"
+                  onClick={handleReplayEnvelope}
+                  className="btn-crimson-outline text-stone-600 border-stone-300 hover:border-[#B81D24] w-full sm:w-auto"
+                  title="View animated invitation envelope again"
                 >
-                  Submit an additional response or modify
+                  <Mail className="w-3.5 h-3.5 text-[#B81D24]" />
+                  <span>Envelope Intro</span>
                 </button>
               </div>
-            ) : (
-              <form onSubmit={handleRsvpSubmit} className="grid grid-cols-1 gap-5 sm:gap-6 max-w-xl">
+
+              {/* Key Speaker, Date & Time, and Where Details */}
+              <div className="mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-[rgba(184,29,36,0.15)] grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-[#2D0A0A]/70">
                 <div>
-                  <label className="meta-mono block mb-1 sm:mb-2 text-[#2D0A0A]/75">
-                    Family Name / Full Name *
+                  <span className="meta-mono block text-[#2D0A0A]/50 mb-0.5 text-[0.55rem]">Speaker</span>
+                  <span className="font-semibold text-[#2D0A0A]">Ptr. Kimuel Tito</span>
+                </div>
+                <div className="sm:border-l border-stone-300 sm:pl-4">
+                  <span className="meta-mono block text-[#2D0A0A]/50 mb-0.5 text-[0.55rem]">Date and Time</span>
+                  <span className="font-semibold text-[#2D0A0A]">October 31, 2026 • 9:00 AM</span>
+                </div>
+                <div className="sm:border-l border-stone-300 sm:pl-4">
+                  <span className="meta-mono block text-[#2D0A0A]/50 mb-0.5 text-[0.55rem]">Where</span>
+                  <span className="font-semibold text-[#2D0A0A]">Lahi Foursquare Gospel Church</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: 4/5 Aspect Ratio Framed Graphic (Responsive Sizing) */}
+            <div className="lg:col-span-5 flex justify-center mt-6 lg:mt-0">
+              <InteractiveTiltCard className="w-full max-w-[320px] sm:max-w-[380px] relative aspect-[4/5] bg-[#F4E8E8] border-2 border-[#B81D24] overflow-hidden shadow-lg">
+                <div
+                  className="w-full h-full relative"
+                  style={{ borderRadius: 0 }}
+                >
+                  <img
+                    src="/src/assets/images/church_thanksgiving_hero_1792160970138.jpg"
+                    alt="Sanctuary prepared for Thanksgiving"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover object-center filter contrast-[1.05]"
+                  />
+                  <div className="absolute bottom-0 inset-x-0 bg-[#2D0A0A]/85 backdrop-blur-xs text-white p-3.5 sm:p-4 border-t border-[#B81D24]/40 z-20">
+                    <div className="meta-mono text-amber-200 text-[0.55rem] sm:text-[0.6rem] mb-0.5">
+                      Lahi Foursquare Gospel Church
+                    </div>
+                    <div className="font-cormorant text-base sm:text-lg font-semibold leading-tight">
+                      Thanksgiving Sanctuary
+                    </div>
+                  </div>
+                </div>
+              </InteractiveTiltCard>
+            </div>
+          </section>
+        </ScrollRevealCard>
+
+        {/* INTERACTIVE ACTION STRIP: Calendar & Sharing (Touch-Friendly Responsive Grid) */}
+        <ScrollRevealCard>
+          <section
+            id="interactive-tools"
+            className="py-6 sm:py-8 border-b border-[rgba(184,29,36,0.15)] grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
+          >
+            <a
+              href={googleCalendarUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between group min-h-[48px]"
+            >
+              <div>
+                <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Google Calendar</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
+                  Add to Calendar
+                </div>
+              </div>
+              <ExternalLink className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
+            </a>
+
+            <button
+              onClick={handleDownloadICS}
+              className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between text-left group min-h-[48px]"
+            >
+              <div>
+                <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Apple & Outlook</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
+                  Download .ICS
+                </div>
+              </div>
+              <BookmarkCheck className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
+            </button>
+
+            <button
+              onClick={handleShare}
+              className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between text-left group min-h-[48px]"
+            >
+              <div>
+                <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Community Link</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
+                  {shared ? 'Link Copied to Clipboard!' : 'Share Invitation'}
+                </div>
+              </div>
+              <Share2 className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
+            </button>
+          </section>
+        </ScrollRevealCard>
+
+        {/* SCRIPTURE & THEME FOCUS */}
+        <ScrollRevealCard>
+          <section id="scripture" className="py-12 sm:py-16 border-b border-[rgba(184,29,36,0.15)]">
+            <div className="max-w-3xl mx-auto text-center px-2">
+              <div className="meta-mono text-[#B81D24] mb-2 sm:mb-3">Scripture Theme</div>
+              <h2 className="section-accent-title-center font-cormorant text-3xl sm:text-5xl font-normal text-[#2D0A0A] mb-6 sm:mb-8 pb-3">
+                Lamentations 3:22–23
+              </h2>
+
+              <p className="font-cormorant italic text-xl sm:text-3xl text-[#2D0A0A] leading-relaxed mb-4 sm:mb-6">
+                “It is the Lord’s mercies that we are not consumed, because his
+                compassions fail not. They are new every morning: great is thy
+                faithfulness.”
+              </p>
+
+              <p className="text-xs sm:text-base text-[#2D0A0A]/70 leading-relaxed font-light max-w-xl mx-auto mb-6 sm:mb-8">
+                In joy and hardship alike, God’s goodness has upheld every family at
+                Lahi Foursquare Gospel Church. As we gather on October 31, we declare
+                His enduring faithfulness across every chapter of our lives.
+              </p>
+
+              <button
+                onClick={handleSpeechToggle}
+                className="inline-flex items-center gap-2 px-4 py-2.5 border border-[#B81D24] text-xs font-mono uppercase tracking-wider text-[#B81D24] hover:bg-[#F4E8E8] transition-colors min-h-[44px]"
+              >
+                <Volume2 className="w-4 h-4 shrink-0" />
+                <span>{isPlayingScripture ? 'Stop Audio' : 'Listen to Scripture Recitation'}</span>
+              </button>
+            </div>
+          </section>
+        </ScrollRevealCard>
+
+        {/* RESOURCE SPEAKER SPOTLIGHT */}
+        <ScrollRevealCard>
+          <section id="speaker" className="py-12 sm:py-16 border-b border-[rgba(184,29,36,0.15)]">
+            <InteractiveTiltCard className="p-6 sm:p-12 border border-[rgba(184,29,36,0.2)] bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-center">
+                <div className="md:col-span-4 border-b md:border-b-0 md:border-r border-[rgba(184,29,36,0.2)] pb-6 md:pb-0 md:pr-8">
+                  <div className="meta-mono text-[#B81D24] mb-1">Resource Speaker</div>
+                  <h3 className="font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] mb-1 sm:mb-2">
+                    Ptr. Kimuel Tito
+                  </h3>
+                  <p className="text-xs uppercase tracking-wider font-mono text-[#2D0A0A]/60">
+                    Guest Minister of the Word
+                  </p>
+                </div>
+
+                <div className="md:col-span-8 md:pl-4">
+                  <h4 className="meta-mono text-[#2D0A0A]/60 mb-2">Sermon Exhortation</h4>
+                  <p className="text-xs sm:text-base text-[#2D0A0A]/85 leading-relaxed font-light mb-4">
+                    We look forward to receiving the Word through Pastor Kimuel Tito,
+                    unpacking God's providential grace and guidance under our theme
+                    <em> “Faithful in Every Season”</em>. The message will be preceded by
+                    a special choral number by the CMS Students.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-6 meta-mono text-[#B81D24] text-[0.6rem] sm:text-xs">
+                    <span>Item 10 in Order of Service</span>
+                    <span>·</span>
+                    <span>Plaque & Token of Honor</span>
+                  </div>
+                </div>
+              </div>
+            </InteractiveTiltCard>
+          </section>
+        </ScrollRevealCard>
+
+        {/* ORDER OF SERVICE (PROGRAM FLOW): Responsive 2-Column Grid */}
+        <ScrollRevealCard>
+          <section id="program" className="py-12 sm:py-16 border-b border-[rgba(184,29,36,0.15)]">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 sm:mb-10">
+              <div>
+                <div className="meta-mono text-[#B81D24] mb-1 sm:mb-2">Complete Schedule</div>
+                <h2 className="section-accent-title font-cormorant text-3xl sm:text-5xl font-normal text-[#2D0A0A] pb-3">
+                  Order of Service
+                </h2>
+                <p className="text-xs sm:text-sm text-[#2D0A0A]/70 mt-2 sm:mt-3 font-light">
+                  Presided by Master of Ceremonies: <strong>Rubelyn Estigoy</strong>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="btn-crimson-outline text-[0.65rem] py-2 px-3 min-h-[44px]"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Schedule</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Search Toolbar */}
+            <div className="mb-6 sm:mb-8 flex justify-end">
+              <div className="relative w-full sm:w-[280px]">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search program or participant..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-base sm:text-xs border border-stone-300 focus:border-[#B81D24] outline-none bg-white font-mono min-h-[44px]"
+                />
+              </div>
+            </div>
+
+            {/* TWO-COLUMN PROGRAM GRID AS SPECIFIED IN VARIATION 4 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 lg:gap-x-12 gap-y-6 sm:gap-y-8">
+              {filteredProgram.map((item, index) => (
+                <ScrollRevealCard key={item.id} delay={(index % 2) * 100}>
+                  <div
+                    className="border-t border-[rgba(184,29,36,0.25)] pt-3.5 sm:pt-4 flex flex-col justify-between group hover:border-[#B81D24] transition-colors h-full"
+                  >
+                    <div>
+                      <div className="meta-mono text-[#B81D24] mb-1 text-[0.6rem] sm:text-[0.65rem]">
+                        {String(item.id).padStart(2, '0')}
+                      </div>
+                      <h3 className="font-cormorant text-xl sm:text-2xl font-semibold text-[#2D0A0A] group-hover:text-[#B81D24] transition-colors leading-tight">
+                        {item.title}
+                      </h3>
+                      <p className="text-xs text-[#2D0A0A]/60 font-light mt-1">
+                        {item.description}
+                      </p>
+                    </div>
+                    <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center justify-between text-xs">
+                      <span className="meta-mono text-[#2D0A0A]/50 text-[0.55rem] sm:text-[0.6rem]">Assigned:</span>
+                      <span className="font-medium text-[#2D0A0A] text-right">{item.assigned}</span>
+                    </div>
+                  </div>
+                </ScrollRevealCard>
+              ))}
+            </div>
+
+            {filteredProgram.length === 0 && (
+              <div className="p-8 sm:p-12 text-center text-stone-500 text-sm font-mono">
+                No service parts found matching "{searchQuery}".
+              </div>
+            )}
+          </section>
+        </ScrollRevealCard>
+
+        {/* RSVP SECTION: Responsive Form Layout */}
+        <ScrollRevealCard>
+          <section id="rsvp" className="py-12 sm:py-16 bg-white border border-[rgba(184,29,36,0.2)] p-6 sm:p-12 my-10 sm:my-16 shadow-xs">
+            <div className="max-w-2xl">
+              <div className="meta-mono text-[#B81D24] mb-2">Attendance Confirmation</div>
+              <h2 className="section-accent-title font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] mb-3 sm:mb-4 pb-3">
+                RSVP
+              </h2>
+              <p className="text-xs sm:text-sm text-[#2D0A0A]/70 font-light mb-6 sm:mb-8">
+                Please register your family's headcount in advance to help our hospitality
+                and fellowship committee prepare adequate seating and lunch servings.
+              </p>
+
+              {rsvpSuccess ? (
+                <div className="p-6 sm:p-8 border-2 border-[#B81D24] bg-[#F4E8E8]/40 space-y-4">
+                  <div className="flex items-center gap-3 text-[#B81D24]">
+                    <CheckCircle2 className="w-6 h-6 shrink-0" />
+                    <h3 className="font-cormorant text-2xl font-bold">
+                      Attendance Registered
+                    </h3>
+                  </div>
+                  <p className="text-xs sm:text-sm text-[#2D0A0A]/85 leading-relaxed font-light">
+                    Thank you, <strong>{rsvpFamilyName}</strong>. Your confirmation for{' '}
+                    <strong>{rsvpHeadcount} attendee(s)</strong> has been recorded for
+                    October 31, 2026 at Lahi Foursquare Gospel Church.
+                  </p>
+                  <button
+                    onClick={() => setRsvpSuccess(false)}
+                    className="meta-mono text-xs text-[#B81D24] underline hover:text-[#96161C] pt-2 block min-h-[44px]"
+                  >
+                    Submit an additional response or modify
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleRsvpSubmit} className="grid grid-cols-1 gap-5 sm:gap-6 max-w-xl">
+                  <div>
+                    <label className="meta-mono block mb-1 sm:mb-2 text-[#2D0A0A]/75">
+                      Family Name / Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Brother & Sister Tumando"
+                      value={rsvpFamilyName}
+                      onChange={(e) => setRsvpFamilyName(e.target.value)}
+                      className="w-full border-b border-stone-300 py-2.5 focus:border-[#B81D24] outline-none bg-transparent font-sans text-base sm:text-sm min-h-[44px]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div>
+                      <label className="meta-mono block mb-1 sm:mb-2 text-[#2D0A0A]/75">
+                        Number of Attendees *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        required
+                        value={rsvpHeadcount}
+                        onChange={(e) => setRsvpHeadcount(parseInt(e.target.value) || 1)}
+                        className="w-full border-b border-stone-300 py-2.5 focus:border-[#B81D24] outline-none bg-transparent font-mono text-base sm:text-sm min-h-[44px]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="meta-mono block mb-1 sm:mb-2 text-[#2D0A0A]/75">
+                        Contact Phone (Optional)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="09XX XXX XXXX"
+                        value={rsvpPhone}
+                        onChange={(e) => setRsvpPhone(e.target.value)}
+                        className="w-full border-b border-stone-300 py-2.5 focus:border-[#B81D24] outline-none bg-transparent font-mono text-base sm:text-sm min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="meta-mono block mb-1 sm:mb-2 text-[#2D0A0A]/75">
+                      Thanksgiving Prayer Request / Note (Optional)
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Share a short word of gratitude or prayer request..."
+                      value={rsvpPrayer}
+                      onChange={(e) => setRsvpPrayer(e.target.value)}
+                      className="w-full border-b border-stone-300 py-2.5 focus:border-[#B81D24] outline-none bg-transparent font-sans text-base sm:text-sm resize-none"
+                    ></textarea>
+                  </div>
+
+                  <div className="pt-2 sm:pt-4">
+                    <button type="submit" className="btn-crimson w-full sm:w-auto">
+                      Confirm Attendance
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </section>
+        </ScrollRevealCard>
+
+        {/* GRATITUDE WALL / CONGREGATIONAL TESTIMONIES */}
+        <ScrollRevealCard>
+          <section id="gratitude-wall" className="py-12 sm:py-16 border-b border-[rgba(184,29,36,0.15)]">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-8">
+              <div>
+                <div className="meta-mono text-[#B81D24] mb-2">Church Fellowship</div>
+                <h2 className="section-accent-title font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] pb-3">
+                  Gratitude Wall
+                </h2>
+                <p className="text-xs sm:text-sm text-[#2D0A0A]/70 mt-2 font-light">
+                  Leave a brief note or testimony of God's faithfulness in your family.
+                </p>
+              </div>
+            </div>
+
+            {/* Submission Input */}
+            <form
+              onSubmit={handleAddNote}
+              className="p-5 sm:p-6 border border-[rgba(184,29,36,0.2)] bg-white mb-8 sm:mb-10"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="meta-mono block mb-1 text-[#2D0A0A]/70">
+                    Your Name / Family
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Brother & Sister Tumando"
-                    value={rsvpFamilyName}
-                    onChange={(e) => setRsvpFamilyName(e.target.value)}
-                    className="w-full border-b border-stone-300 py-2.5 focus:border-[#B81D24] outline-none bg-transparent font-sans text-base sm:text-sm min-h-[44px]"
+                    placeholder="e.g. The Barrios Family"
+                    value={newNoteName}
+                    onChange={(e) => setNewNoteName(e.target.value)}
+                    className="w-full border-b border-stone-300 py-2 focus:border-[#B81D24] outline-none bg-transparent text-base sm:text-xs min-h-[44px]"
                   />
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div>
-                    <label className="meta-mono block mb-1 sm:mb-2 text-[#2D0A0A]/75">
-                      Number of Attendees *
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      required
-                      value={rsvpHeadcount}
-                      onChange={(e) => setRsvpHeadcount(parseInt(e.target.value) || 1)}
-                      className="w-full border-b border-stone-300 py-2.5 focus:border-[#B81D24] outline-none bg-transparent font-mono text-base sm:text-sm min-h-[44px]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="meta-mono block mb-1 sm:mb-2 text-[#2D0A0A]/75">
-                      Contact Phone (Optional)
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder="09XX XXX XXXX"
-                      value={rsvpPhone}
-                      onChange={(e) => setRsvpPhone(e.target.value)}
-                      className="w-full border-b border-stone-300 py-2.5 focus:border-[#B81D24] outline-none bg-transparent font-mono text-base sm:text-sm min-h-[44px]"
-                    />
-                  </div>
-                </div>
-
                 <div>
-                  <label className="meta-mono block mb-1 sm:mb-2 text-[#2D0A0A]/75">
-                    Thanksgiving Prayer Request / Note (Optional)
+                  <label className="meta-mono block mb-1 text-[#2D0A0A]/70">
+                    Focus of Thanksgiving
                   </label>
-                  <textarea
-                    rows={3}
-                    placeholder="Share a short word of gratitude or prayer request..."
-                    value={rsvpPrayer}
-                    onChange={(e) => setRsvpPrayer(e.target.value)}
-                    className="w-full border-b border-stone-300 py-2.5 focus:border-[#B81D24] outline-none bg-transparent font-sans text-base sm:text-sm resize-none"
-                  ></textarea>
+                  <input
+                    type="text"
+                    readOnly
+                    defaultValue="God's Faithfulness"
+                    className="w-full border-b border-stone-200 py-2 text-stone-400 bg-transparent text-xs font-mono min-h-[44px]"
+                  />
                 </div>
+              </div>
 
-                <div className="pt-2 sm:pt-4">
-                  <button type="submit" className="btn-crimson w-full sm:w-auto">
-                    Confirm Attendance
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </section>
-
-        {/* GRATITUDE WALL / CONGREGATIONAL TESTIMONIES */}
-        <section id="gratitude-wall" className="py-12 sm:py-16 border-b border-[rgba(184,29,36,0.15)]">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-8">
-            <div>
-              <div className="meta-mono text-[#B81D24] mb-2">Church Fellowship</div>
-              <h2 className="section-accent-title font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] pb-3">
-                Gratitude Wall
-              </h2>
-              <p className="text-xs sm:text-sm text-[#2D0A0A]/70 mt-2 font-light">
-                Leave a brief note or testimony of God's faithfulness in your family.
-              </p>
-            </div>
-          </div>
-
-          {/* Submission Input */}
-          <form
-            onSubmit={handleAddNote}
-            className="p-5 sm:p-6 border border-[rgba(184,29,36,0.2)] bg-white mb-8 sm:mb-10"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
+              <div className="mb-4">
                 <label className="meta-mono block mb-1 text-[#2D0A0A]/70">
-                  Your Name / Family
+                  Praise or Testimony
                 </label>
-                <input
-                  type="text"
+                <textarea
                   required
-                  placeholder="e.g. The Barrios Family"
-                  value={newNoteName}
-                  onChange={(e) => setNewNoteName(e.target.value)}
-                  className="w-full border-b border-stone-300 py-2 focus:border-[#B81D24] outline-none bg-transparent text-base sm:text-xs min-h-[44px]"
-                />
+                  rows={2}
+                  placeholder="Declare how God showed up for you this year..."
+                  value={newNoteMessage}
+                  onChange={(e) => setNewNoteMessage(e.target.value)}
+                  className="w-full border-b border-stone-300 py-2 focus:border-[#B81D24] outline-none bg-transparent text-base sm:text-xs resize-none"
+                ></textarea>
               </div>
-              <div>
-                <label className="meta-mono block mb-1 text-[#2D0A0A]/70">
-                  Focus of Thanksgiving
-                </label>
-                <input
-                  type="text"
-                  readOnly
-                  defaultValue="God's Faithfulness"
-                  className="w-full border-b border-stone-200 py-2 text-stone-400 bg-transparent text-xs font-mono min-h-[44px]"
-                />
-              </div>
-            </div>
 
-            <div className="mb-4">
-              <label className="meta-mono block mb-1 text-[#2D0A0A]/70">
-                Praise or Testimony
-              </label>
-              <textarea
-                required
-                rows={2}
-                placeholder="Declare how God showed up for you this year..."
-                value={newNoteMessage}
-                onChange={(e) => setNewNoteMessage(e.target.value)}
-                className="w-full border-b border-stone-300 py-2 focus:border-[#B81D24] outline-none bg-transparent text-base sm:text-xs resize-none"
-              ></textarea>
-            </div>
+              <button type="submit" className="btn-crimson text-[0.65rem] py-2 px-4 w-full sm:w-auto">
+                <Send className="w-3.5 h-3.5" />
+                <span>Post Thanksgiving Testimony</span>
+              </button>
+            </form>
 
-            <button type="submit" className="btn-crimson text-[0.65rem] py-2 px-4 w-full sm:w-auto">
-              <Send className="w-3.5 h-3.5" />
-              <span>Post Thanksgiving Testimony</span>
-            </button>
-          </form>
-
-          {/* Testimonies Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-            {notes.map((note) => (
-              <div
-                key={note.id}
-                className="p-5 sm:p-6 border border-[rgba(184,29,36,0.2)] bg-white flex flex-col justify-between"
-              >
-                <p className="font-cormorant italic text-base sm:text-xl text-[#2D0A0A] leading-relaxed mb-4">
-                  “{note.message}”
-                </p>
-                <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[#2D0A0A] truncate pr-2">{note.name}</span>
-                  <span className="meta-mono text-[#B81D24] text-[0.6rem] shrink-0">{note.date}</span>
+            {/* Testimonies Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+              {notes.map((note) => (
+                <div
+                  key={note.id}
+                  className="p-5 sm:p-6 border border-[rgba(184,29,36,0.2)] bg-white flex flex-col justify-between"
+                >
+                  <p className="font-cormorant italic text-base sm:text-xl text-[#2D0A0A] leading-relaxed mb-4">
+                    “{note.message}”
+                  </p>
+                  <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#2D0A0A] truncate pr-2">{note.name}</span>
+                    <span className="meta-mono text-[#B81D24] text-[0.6rem] shrink-0">{note.date}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        </ScrollRevealCard>
 
         {/* VENUE & LOCATION DETAILS (Responsive Grid) */}
-        <section id="venue" className="py-12 sm:py-16">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-6">
-              <div className="meta-mono text-[#B81D24] mb-2">Location & Gathering</div>
-              <h2 className="section-accent-title font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] mb-4 sm:mb-6 pb-3">
-                Lahi Sanctuary
-              </h2>
-              <div className="space-y-3 sm:space-y-4 text-xs sm:text-sm text-[#2D0A0A]/80 font-light">
-                <p>
-                  <strong>Lahi Foursquare Gospel Church</strong> warmly welcomes you and
-                  your loved ones. Registration and seating lineup commence at 8:30 AM
-                  prior to the 9:00 AM processional.
-                </p>
-                <p>
-                  A community fellowship lunch will be served immediately following the
-                  benediction.
-                </p>
+        <ScrollRevealCard>
+          <section id="venue" className="py-12 sm:py-16">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              <div className="lg:col-span-6">
+                <div className="meta-mono text-[#B81D24] mb-2">Location & Gathering</div>
+                <h2 className="section-accent-title font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] mb-4 sm:mb-6 pb-3">
+                  Lahi Sanctuary
+                </h2>
+                <div className="space-y-3 sm:space-y-4 text-xs sm:text-sm text-[#2D0A0A]/80 font-light">
+                  <p>
+                    <strong>Lahi Foursquare Gospel Church</strong> warmly welcomes you and
+                    your loved ones. Registration and seating lineup commence at 8:30 AM
+                    prior to the 9:00 AM processional.
+                  </p>
+                  <p>
+                    A community fellowship lunch will be served immediately following the
+                    benediction.
+                  </p>
+                </div>
+
+                <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
+                  <button onClick={handleCopyAddress} className="btn-crimson-outline w-full sm:w-auto text-center">
+                    {copiedAddress ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Address Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 shrink-0" />
+                        <span>Copy Church Name</span>
+                      </>
+                    )}
+                  </button>
+                  <a
+                    href="https://maps.google.com/?q=Lahi+Foursquare+Gospel+Church"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-crimson-outline w-full sm:w-auto text-center"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                    <span>Google Maps</span>
+                  </a>
+                </div>
               </div>
 
-              <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <button onClick={handleCopyAddress} className="btn-crimson-outline w-full sm:w-auto text-center">
-                  {copiedAddress ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Address Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 shrink-0" />
-                      <span>Copy Church Name</span>
-                    </>
-                  )}
-                </button>
-                <a
-                  href="https://maps.google.com/?q=Lahi+Foursquare+Gospel+Church"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-crimson-outline w-full sm:w-auto text-center"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                  <span>Google Maps</span>
-                </a>
-              </div>
-            </div>
-
-            <div className="lg:col-span-6 p-5 sm:p-6 border border-[rgba(184,29,36,0.2)] bg-white space-y-3">
-              <div className="meta-mono text-[#B81D24]">Key Day Information</div>
-              <div className="divide-y divide-stone-100 text-xs">
-                <div className="py-2.5 flex justify-between gap-2">
-                  <span className="text-[#2D0A0A]/60">Date:</span>
-                  <span className="font-semibold text-[#2D0A0A] text-right">Saturday, October 31, 2026</span>
-                </div>
-                <div className="py-2.5 flex justify-between gap-2">
-                  <span className="text-[#2D0A0A]/60">Call Time:</span>
-                  <span className="font-semibold text-[#2D0A0A] text-right">8:30 AM (Assembly)</span>
-                </div>
-                <div className="py-2.5 flex justify-between gap-2">
-                  <span className="text-[#2D0A0A]/60">Service Start:</span>
-                  <span className="font-semibold text-[#2D0A0A] text-right">9:00 AM Prompt</span>
-                </div>
-                <div className="py-2.5 flex justify-between gap-2">
-                  <span className="text-[#2D0A0A]/60">Attire:</span>
-                  <span className="font-semibold text-[#2D0A0A] text-right">Sunday Best / Church Attire</span>
-                </div>
-                <div className="py-2.5 flex justify-between gap-2">
-                  <span className="text-[#2D0A0A]/60">Fellowship:</span>
-                  <span className="font-semibold text-[#2D0A0A] text-right">Community Lunch Provided</span>
+              <div className="lg:col-span-6 p-5 sm:p-6 border border-[rgba(184,29,36,0.2)] bg-white space-y-3">
+                <div className="meta-mono text-[#B81D24]">Key Day Information</div>
+                <div className="divide-y divide-stone-100 text-xs">
+                  <div className="py-2.5 flex justify-between gap-2">
+                    <span className="text-[#2D0A0A]/60">Date:</span>
+                    <span className="font-semibold text-[#2D0A0A] text-right">Saturday, October 31, 2026</span>
+                  </div>
+                  <div className="py-2.5 flex justify-between gap-2">
+                    <span className="text-[#2D0A0A]/60">Call Time:</span>
+                    <span className="font-semibold text-[#2D0A0A] text-right">8:30 AM (Assembly)</span>
+                  </div>
+                  <div className="py-2.5 flex justify-between gap-2">
+                    <span className="text-[#2D0A0A]/60">Service Start:</span>
+                    <span className="font-semibold text-[#2D0A0A] text-right">9:00 AM Prompt</span>
+                  </div>
+                  <div className="py-2.5 flex justify-between gap-2">
+                    <span className="text-[#2D0A0A]/60">Attire:</span>
+                    <span className="font-semibold text-[#2D0A0A] text-right">Sunday Best / Church Attire</span>
+                  </div>
+                  <div className="py-2.5 flex justify-between gap-2">
+                    <span className="text-[#2D0A0A]/60">Fellowship:</span>
+                    <span className="font-semibold text-[#2D0A0A] text-right">Community Lunch Provided</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </ScrollRevealCard>
       </main>
 
       {/* FOOTER: Responsive Minimalist Space Mono Footer */}
@@ -1528,30 +1951,235 @@ export default function App() {
         </div>
       </footer>
 
-      {/* FLOATING SUBTLE HARVEST AMBIENCE TOGGLE (Bottom Right, only on full invitation) */}
+      {/* FLOATING SUBTLE HARVEST AMBIENCE & HYMN SOUNDSCAPE TOGGLE (Bottom Right, only on full invitation) */}
       {envelopeStage === 'unveiled' && (
         <button
           onClick={toggleAmbience}
-          className="fixed bottom-4 right-4 z-40 bg-[#FDFBFA]/90 hover:bg-[#FDFBFA] backdrop-blur-md border border-[rgba(184,29,36,0.25)] shadow-md hover:shadow-lg px-3 py-1.5 rounded-full flex items-center gap-2 text-[0.62rem] meta-mono text-[#2D0A0A] hover:border-[#B81D24] transition-all no-print group cursor-pointer"
-          title={ambienceEnabled ? 'Pause harvest autumn ambience' : 'Play harvest autumn ambience'}
-          aria-label="Toggle harvest ambience"
+          className="fixed bottom-4 right-4 z-40 bg-[#FDFBFA]/95 hover:bg-[#FDFBFA] backdrop-blur-md border border-[rgba(184,29,36,0.25)] shadow-md hover:shadow-lg px-3.5 py-2 rounded-full flex items-center gap-2 text-[0.62rem] meta-mono text-[#2D0A0A] hover:border-[#B81D24] transition-all no-print group cursor-pointer"
+          title={ambienceEnabled ? 'Pause harvest ambience & hymn soundscape' : 'Play harvest ambience & hymn soundscape'}
+          aria-label="Toggle harvest ambience and hymn soundscape"
         >
           <span className="text-amber-600 text-xs transition-transform group-hover:scale-110">🍂</span>
-          <span className="text-[0.6rem] text-[#2D0A0A]/80 font-medium hidden sm:inline">Harvest Ambience</span>
+          <span className="text-[0.6rem] text-[#2D0A0A]/80 font-medium hidden sm:inline">Harvest Ambience & Hymns</span>
           {ambienceEnabled ? (
             <span className="flex items-center gap-1 text-[#B81D24] font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
               <span className="text-[0.58rem]">Playing</span>
-              <Pause className="w-3 h-3 ml-0.5" />
+              <Volume2 className="w-3.5 h-3.5 ml-0.5 text-[#B81D24]" />
             </span>
           ) : (
             <span className="flex items-center gap-1 text-stone-500">
-              <Play className="w-3 h-3" />
+              <VolumeX className="w-3.5 h-3.5" />
               <span className="text-[0.58rem]">Paused</span>
             </span>
           )}
         </button>
       )}
+
+      {/* ADMIN / USHER ATTENDANCE TALLY MODAL (Accessible via URL #admin) */}
+      {isAdminOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-[#2D0A0A]/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#FDFBFA] border-2 border-[#B81D24]/40 w-full max-w-4xl p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                window.location.hash = '';
+                setIsAdminOpen(false);
+                setAdminAuthenticated(false);
+                setAdminPinInput('');
+              }}
+              className="absolute top-4 right-4 text-stone-500 hover:text-[#B81D24] p-1.5 cursor-pointer"
+              aria-label="Close admin modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {!adminAuthenticated ? (
+              <div className="max-w-md mx-auto py-8 text-center space-y-6">
+                <div className="w-12 h-12 bg-[#B81D24]/10 text-[#B81D24] rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                  🔐
+                </div>
+                <div>
+                  <h3 className="font-cormorant text-2xl font-bold text-[#2D0A0A]">Usher & Admin Attendance Access</h3>
+                  <p className="meta-mono text-xs text-stone-500 mt-1">Enter secure PIN to view confirmed families and headcounts.</p>
+                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (adminPinInput === '2026' || adminPinInput === '1234' || adminPinInput === 'admin') {
+                      setAdminAuthenticated(true);
+                      setAdminPinError(false);
+                    } else {
+                      setAdminPinError(true);
+                    }
+                  }}
+                  className="space-y-4"
+                >
+                  <input
+                    type="password"
+                    maxLength={6}
+                    value={adminPinInput}
+                    onChange={(e) => setAdminPinInput(e.target.value)}
+                    placeholder="Enter PIN (hint: 2026)"
+                    className="w-full px-4 py-3 bg-stone-50 border border-stone-300 text-center text-lg tracking-widest font-mono rounded-none focus:outline-none focus:border-[#B81D24]"
+                    autoFocus
+                  />
+                  {adminPinError && (
+                    <p className="text-xs text-[#B81D24] font-medium">Incorrect PIN. Hint: try 2026</p>
+                  )}
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-[#B81D24] hover:bg-[#8B1419] text-white font-medium text-xs uppercase tracking-widest transition-colors rounded-none cursor-pointer"
+                  >
+                    Authorize Access
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="border-b border-stone-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="meta-mono text-[0.6rem] text-[#B81D24] uppercase tracking-wider font-semibold block">Registration Desk Portal</span>
+                    <h2 className="font-cormorant text-2xl sm:text-3xl font-bold text-[#2D0A0A]">Attendance & Tally Summary</h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleExportCsv}
+                      className="btn-crimson-outline text-xs py-2 px-3 cursor-pointer"
+                    >
+                      Export CSV
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      className="btn-crimson-outline text-xs py-2 px-3 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print Sheet</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRsvpsRefreshKey(k => k + 1);
+                      }}
+                      className="btn-crimson-outline text-xs py-2 px-3 cursor-pointer"
+                      title="Refresh data"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tally Cards */}
+                {(() => {
+                  const currentRsvps = rsvps;
+                  const totalFamilies = currentRsvps.length;
+                  const totalHeadcount = currentRsvps.reduce((acc: number, r: { headcount?: number }) => acc + (Number(r.headcount) || 1), 0);
+                  const averageFamilySize = totalFamilies > 0 ? (totalHeadcount / totalFamilies).toFixed(1) : 0;
+                  
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="bg-stone-50 border border-stone-200 p-4 rounded-none">
+                        <span className="meta-mono text-[0.6rem] text-stone-500 uppercase tracking-wider block">Total Families Confirmed</span>
+                        <div className="font-cormorant text-3xl font-bold text-[#2D0A0A] mt-1">{totalFamilies}</div>
+                        <span className="text-[0.65rem] text-emerald-700 font-medium mt-1 block">✓ Ready for registration desk</span>
+                      </div>
+                      <div className="bg-stone-50 border border-stone-200 p-4 rounded-none">
+                        <span className="meta-mono text-[0.6rem] text-stone-500 uppercase tracking-wider block">Total Headcount Breakdown</span>
+                        <div className="font-cormorant text-3xl font-bold text-[#B81D24] mt-1">{totalHeadcount} <span className="text-sm font-sans font-normal text-stone-600">Attendees</span></div>
+                        <span className="text-[0.65rem] text-stone-500 mt-1 block">Seating & lunch allocation</span>
+                      </div>
+                      <div className="bg-stone-50 border border-stone-200 p-4 rounded-none">
+                        <span className="meta-mono text-[0.6rem] text-stone-500 uppercase tracking-wider block">Average Family Size</span>
+                        <div className="font-cormorant text-3xl font-bold text-[#2D0A0A] mt-1">{averageFamilySize} <span className="text-sm font-sans font-normal text-stone-600">per family</span></div>
+                        <span className="text-[0.65rem] text-stone-500 mt-1 block">Based on RSVP submissions</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Searchable Family List */}
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 className="font-cormorant text-xl font-bold text-[#2D0A0A]">Confirmed Families & Guests</h3>
+                    <div className="relative w-full sm:w-72">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+                      <input
+                        type="text"
+                        value={adminSearch}
+                        onChange={(e) => setAdminSearch(e.target.value)}
+                        placeholder="Search family name or contact..."
+                        className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-300 text-xs text-[#2D0A0A] rounded-none focus:outline-none focus:border-[#B81D24]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border border-stone-200 overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-stone-100 border-b border-stone-200 text-[0.65rem] meta-mono text-[#2D0A0A]/70 uppercase tracking-wider">
+                          <th className="p-3">Family / Name</th>
+                          <th className="p-3 text-center">Headcount</th>
+                          <th className="p-3">Contact Number</th>
+                          <th className="p-3">Prayer Request / Notes</th>
+                          <th className="p-3">Time</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-200 text-xs font-light">
+                        {(() => {
+                          const filtered = rsvps.filter((r: { name?: string; phone?: string; prayer?: string }) =>
+                            (r.name || '').toLowerCase().includes(adminSearch.toLowerCase()) ||
+                            (r.phone || '').toLowerCase().includes(adminSearch.toLowerCase()) ||
+                            (r.prayer || '').toLowerCase().includes(adminSearch.toLowerCase())
+                          );
+
+                          if (filtered.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={5} className="p-6 text-center text-stone-500 font-sans italic">
+                                  No family RSVPs found matching your search.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return filtered.map((r: { name?: string; headcount?: number; phone?: string; prayer?: string; timestamp?: string }, idx: number) => (
+                            <tr key={idx} className="hover:bg-stone-50/80 transition-colors">
+                              <td className="p-3 font-semibold text-[#2D0A0A]">{r.name}</td>
+                              <td className="p-3 text-center">
+                                <span className="inline-block px-2 py-0.5 bg-[#B81D24]/10 text-[#B81D24] font-semibold text-xs rounded">
+                                  {r.headcount || 1}
+                                </span>
+                              </td>
+                              <td className="p-3 text-stone-600 font-mono text-[0.65rem]">{r.phone || '—'}</td>
+                              <td className="p-3 text-stone-700 italic max-w-xs truncate">{r.prayer || '—'}</td>
+                              <td className="p-3 text-[0.65rem] text-stone-500 font-mono">
+                                {r.timestamp ? new Date(r.timestamp).toLocaleDateString() + ' ' + new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-stone-200 flex justify-end">
+                  <button
+                    onClick={() => {
+                      window.location.hash = '';
+                      setIsAdminOpen(false);
+                      setAdminAuthenticated(false);
+                      setAdminPinInput('');
+                    }}
+                    className="px-5 py-2.5 bg-[#2D0A0A] text-white text-xs uppercase tracking-widest font-medium hover:bg-[#B81D24] transition-colors rounded-none cursor-pointer"
+                  >
+                    Close Admin View
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
