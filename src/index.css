@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #FDFBFA;
+  --ink: #2D0A0A;
+  --accent: #B81D24;
+  --accent-hover: #96161C;
+  --soft: #F4E8E8;
+  --border-accent: rgba(184, 29, 36, 0.18);
+}
+
+::selection {
+  background: #B81D24;
+  color: #FFFFFF;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, h4, .brand-font {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+}
+
+.font-cormorant {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.font-space-mono {
+  font-family: 'Space Mono', monospace;
+}
+
+.meta-mono {
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.65rem;
+}
+
+.section-accent-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  position: relative;
+}
+
+.section-accent-title::after {
+  content: "";
+  width: 48px;
+  height: 2px;
+  background-color: var(--accent);
+  position: absolute;
+  bottom: -0.75rem;
+  left: 0;
+}
+
+.section-accent-title-center::after {
+  content: "";
+  width: 48px;
+  height: 2px;
+  background-color: var(--accent);
+  position: absolute;
+  bottom: -0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.btn-crimson {
+  background-color: var(--accent);
+  color: #FFFFFF;
+  padding: 0.8rem 1.6rem;
+  min-height: 44px;
+  border-radius: 0;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: 'Space Mono', monospace;
+  cursor: pointer;
+}
+
+.btn-crimson:hover {
+  background-color: var(--accent-hover);
+}
+
+.btn-crimson-outline {
+  background-color: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 0.8rem 1.6rem;
+  min-height: 44px;
+  border-radius: 0;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: 'Space Mono', monospace;
+  cursor: pointer;
+}
+
+.btn-crimson-outline:hover {
+  background-color: var(--soft);
+}
+
+/* 3D Envelope Styles */
+.perspective-envelope {
+  perspective: 1400px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.envelope-flap {
+  transform-origin: top center;
+  transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  backface-visibility: hidden;
+}
+
+.envelope-flap.open {
+  transform: rotateX(180deg);
+}
+
+.letter-sheet {
+  transition: transform 1s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s ease-out;
+}
+
+@keyframes sealPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 14px rgba(184, 29, 36, 0.45);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(184, 29, 36, 0.7);
+  }
+}
+
+.wax-seal-pulse {
+  animation: sealPulse 2.5s infinite ease-in-out;
+  transform-origin: center center;
+}
+
+@keyframes sealShatter {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    filter: drop-shadow(0 4px 14px rgba(184, 29, 36, 0.45));
+  }
+  25% {
+    transform: scale(1.08) rotate(-2deg);
+    opacity: 1;
+    filter: brightness(1.2) drop-shadow(0 6px 20px rgba(245, 158, 11, 0.6));
+  }
+  60% {
+    transform: scale(1.14) rotate(3deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(0.2) rotate(-15deg);
+    opacity: 0;
+  }
+}
+
+.seal-shattering {
+  animation: sealShatter 0.55s forwards cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: none;
+}
+
+@keyframes waxCrumbleParticle {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.6) rotate(0deg);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(calc(var(--tx) * 0.45), calc(var(--ty) * 0.45)) scale(1.25) rotate(calc(var(--rot) * 0.4));
+  }
+  65% {
+    opacity: 0.95;
+    transform: translate(var(--tx), var(--ty)) scale(1) rotate(var(--rot));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--tx) * 1.15), calc(var(--ty) + 55px)) scale(0.35) rotate(calc(var(--rot) * 1.5));
+  }
+}
+
+.wax-particle {
+  animation: waxCrumbleParticle 0.85s forwards cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+/* Hide scrollbar on mobile horizontal tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

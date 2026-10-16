@@ -1,0 +1,6 @@
+{
+  "name": "Thanksgiving Invitation",
+  "description": "Lahi Foursquare Gospel Church Thanksgiving Celebration: Faithful in Every Season.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
