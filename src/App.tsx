@@ -29,7 +29,8 @@ import {
   Pause
 } from 'lucide-react';
 import { HarvestAmbience } from './components/HarvestAmbience';
-import lahiChurchImg from './assets/images/lahi_church_sanctuary_1792169579144.jpg';
+import thanksgivingBannerImg from './assets/images/thanksgiving_church_banner_1792242161320.jpg';
+import confetti from 'canvas-confetti';
 
 interface ProgramItem {
   id: number;
@@ -319,18 +320,20 @@ function playChimeSound() {
   }
 }
 
-// Ambient Hymn Soundscape Generator using Web Audio API
+// Contemporary Christian Worship Song Soundscape Generator using Web Audio API
 class AmbientHymnPlayer {
   private ctx: AudioContext | null = null;
   private timerId: number | null = null;
   private isPlaying = false;
   private chordIndex = 0;
+  // Inspiring Worship Chord Progression in D Major: D - A - Bm - G
   private chords = [
-    [261.63, 329.63, 392.00, 523.25], // C major
-    [220.00, 261.63, 329.63, 392.00], // A minor
-    [174.61, 220.00, 261.63, 329.63], // F major
-    [196.00, 246.94, 293.66, 392.00]  // G major
+    [293.66, 369.99, 440.00, 587.33], // D Major (D4, F#4, A4, D5)
+    [220.00, 277.18, 329.63, 440.00], // A Major (A3, C#4, E4, A4)
+    [246.94, 293.66, 369.99, 440.00], // B Minor (B3, D4, F#4, A4)
+    [196.00, 246.94, 293.66, 392.00]  // G Major (G3, B3, D4, G4)
   ];
+  private melodyNotes = [587.33, 659.25, 739.98, 880.00, 783.99, 587.33];
 
   start() {
     if (this.isPlaying) return;
@@ -342,10 +345,10 @@ class AmbientHymnPlayer {
         this.ctx.resume();
       }
       this.isPlaying = true;
-      this.playNextChord();
+      this.playWorshipMeasure();
       this.timerId = window.setInterval(() => {
-        this.playNextChord();
-      }, 5500);
+        this.playWorshipMeasure();
+      }, 5000);
     } catch {
       // Audio context error
     }
@@ -367,35 +370,52 @@ class AmbientHymnPlayer {
     }
   }
 
-  private playNextChord() {
+  private playWorshipMeasure() {
     if (!this.isPlaying || !this.ctx) return;
     const now = this.ctx.currentTime;
     const chord = this.chords[this.chordIndex];
     this.chordIndex = (this.chordIndex + 1) % this.chords.length;
 
+    // Play warm worship pad chord
     chord.forEach((freq, i) => {
       if (!this.ctx) return;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
 
-      osc.type = i % 2 === 0 ? 'triangle' : 'sine';
+      osc.type = i % 2 === 0 ? 'sine' : 'triangle';
       osc.frequency.setValueAtTime(freq, now);
 
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(650, now);
+      filter.frequency.setValueAtTime(800, now);
 
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.045, now + 0.8);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 5.2);
+      gain.gain.linearRampToValueAtTime(0.04, now + 0.9);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 4.8);
 
       osc.connect(filter);
       filter.connect(gain);
       gain.connect(this.ctx.destination);
 
-      osc.start(now + i * 0.08);
-      osc.stop(now + 5.3);
+      osc.start(now + i * 0.05);
+      osc.stop(now + 4.9);
     });
+
+    // Play gentle worship bell/piano arpeggio note
+    const arpeggioFreq = this.melodyNotes[Math.floor(Math.random() * this.melodyNotes.length)];
+    const arpOsc = this.ctx.createOscillator();
+    const arpGain = this.ctx.createGain();
+    arpOsc.type = 'sine';
+    arpOsc.frequency.setValueAtTime(arpeggioFreq, now + 1.2);
+
+    arpGain.gain.setValueAtTime(0, now + 1.2);
+    arpGain.gain.linearRampToValueAtTime(0.025, now + 1.25);
+    arpGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.5);
+
+    arpOsc.connect(arpGain);
+    arpGain.connect(this.ctx.destination);
+    arpOsc.start(now + 1.2);
+    arpOsc.stop(now + 3.6);
   }
 }
 
@@ -864,6 +884,13 @@ export default function App() {
       console.error('Error saving RSVP to Firestore:', err);
     }
 
+    playChimeSound();
+    confetti({
+      particleCount: 120,
+      spread: 80,
+      origin: { y: 0.65 },
+      colors: ['#B81D24', '#F59E0B', '#2D0A0A', '#FDE68A', '#96161C', '#FFFFFF']
+    });
     setRsvpSuccess(true);
   };
 
@@ -1467,8 +1494,9 @@ export default function App() {
                   style={{ borderRadius: 0 }}
                 >
                   <img
-                    src={lahiChurchImg}
-                    alt="Lahi Foursquare Gospel Church Sanctuary"
+                    src="https://i.pinimg.com/736x/a3/32/a2/a332a2d241eb12f0cb3214514eab8d74.jpg"
+                    alt="Lahi Foursquare Gospel Church Thanksgiving Banner"
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover object-center filter contrast-[1.05]"
                   />
                   <div className="absolute bottom-0 inset-x-0 bg-[#2D0A0A]/85 backdrop-blur-xs text-white p-3.5 sm:p-4 border-t border-[#B81D24]/40 z-20">
@@ -1589,11 +1617,6 @@ export default function App() {
                     <em> “Faithful in Every Season”</em>. The message will be preceded by
                     a special choral number by the CMS Students.
                   </p>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-6 meta-mono text-[#B81D24] text-[0.6rem] sm:text-xs">
-                    <span>Item 10 in Order of Service</span>
-                    <span>·</span>
-                    <span>Plaque & Token of Honor</span>
-                  </div>
                 </div>
               </div>
             </InteractiveTiltCard>
@@ -1688,21 +1711,27 @@ export default function App() {
               </p>
 
               {rsvpSuccess ? (
-                <div className="p-6 sm:p-8 border-2 border-[#B81D24] bg-[#F4E8E8]/40 space-y-4">
+                <div className="p-6 sm:p-8 border-2 border-[#B81D24] bg-[#F4E8E8]/80 space-y-4 transform transition-all animate-in fade-in zoom-in duration-500 relative overflow-hidden shadow-xl">
+                  {/* Confetti / Golden Sparkle Accents */}
+                  <div className="absolute -right-8 -top-8 w-28 h-28 bg-amber-400/25 rounded-full blur-2xl pointer-events-none animate-pulse"></div>
+                  <div className="absolute -left-8 -bottom-8 w-28 h-28 bg-[#B81D24]/20 rounded-full blur-2xl pointer-events-none animate-pulse"></div>
+
                   <div className="flex items-center gap-3 text-[#B81D24]">
-                    <CheckCircle2 className="w-6 h-6 shrink-0" />
-                    <h3 className="font-cormorant text-2xl font-bold">
-                      Attendance Registered
+                    <div className="w-10 h-10 rounded-full bg-[#B81D24]/15 flex items-center justify-center animate-bounce">
+                      <CheckCircle2 className="w-6 h-6 shrink-0 text-[#B81D24]" />
+                    </div>
+                    <h3 className="font-cormorant text-2xl sm:text-3xl font-bold">
+                      🎉 Attendance Confirmed!
                     </h3>
                   </div>
-                  <p className="text-xs sm:text-sm text-[#2D0A0A]/85 leading-relaxed font-light">
-                    Thank you, <strong>{rsvpFamilyName}</strong>. Your confirmation for{' '}
-                    <strong>{rsvpHeadcount} attendee(s)</strong> has been recorded for
-                    October 31, 2026 at Lahi Foursquare Gospel Church.
+                  <p className="text-xs sm:text-sm text-[#2D0A0A]/90 leading-relaxed font-light">
+                    Thank you, <strong>{rsvpFamilyName}</strong>! Your family confirmation for{' '}
+                    <strong>{rsvpHeadcount} attendee(s)</strong> has been successfully recorded for
+                    October 31, 2026 at Lahi Foursquare Gospel Church. We rejoice with you!
                   </p>
                   <button
                     onClick={() => setRsvpSuccess(false)}
-                    className="meta-mono text-xs text-[#B81D24] underline hover:text-[#96161C] pt-2 block min-h-[44px]"
+                    className="meta-mono text-xs text-[#B81D24] underline hover:text-[#96161C] pt-2 block min-h-[44px] cursor-pointer"
                   >
                     Submit an additional response or modify
                   </button>
