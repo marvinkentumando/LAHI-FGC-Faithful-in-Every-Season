@@ -1426,7 +1426,7 @@ export default function App() {
             className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center py-8 sm:py-14 lg:py-20 border-b border-[rgba(184,29,36,0.15)]"
           >
             {/* Left Column (7 cols on desktop, full width on mobile) */}
-            <div className="lg:col-span-7">
+            <div className="lg:col-span-7 order-2 lg:order-1">
               <h1
                 className="font-cormorant text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-normal leading-tight sm:leading-[0.92] tracking-tight text-[#2D0A0A] mb-4 sm:mb-6"
                 style={{ textWrap: 'balance' }}
@@ -1487,7 +1487,7 @@ export default function App() {
             </div>
 
             {/* Right Column: 4/5 Aspect Ratio Framed Graphic (Responsive Sizing) */}
-            <div className="lg:col-span-5 flex justify-center mt-6 lg:mt-0">
+            <div className="lg:col-span-5 flex justify-center mb-6 lg:mb-0 order-1 lg:order-2">
               <InteractiveTiltCard className="w-full max-w-[320px] sm:max-w-[380px] relative aspect-[4/5] bg-[#F4E8E8] border-2 border-[#B81D24] overflow-hidden shadow-lg">
                 <div
                   className="w-full h-full relative"
@@ -1635,16 +1635,6 @@ export default function App() {
                 <p className="text-xs sm:text-sm text-[#2D0A0A]/70 mt-2 sm:mt-3 font-light">
                   Presided by Master of Ceremonies: <strong>Rubelyn Estigoy</strong>
                 </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="btn-crimson-outline text-[0.65rem] py-2 px-3 min-h-[44px]"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Schedule</span>
-                </button>
               </div>
             </div>
 
