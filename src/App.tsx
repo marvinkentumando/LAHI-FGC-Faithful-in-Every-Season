@@ -220,11 +220,11 @@ const INITIAL_TESTIMONIES: GratitudeNote[] = [
 ];
 
 const INITIAL_RSVPS = [
-  { name: 'Barrios Family', headcount: 5, phone: '09123456789', prayer: 'Thankful for God\'s grace and healing.', timestamp: '2026-10-15T10:00:00Z' },
-  { name: 'Tito Family', headcount: 4, phone: '09198765432', prayer: 'Abundant blessings for the church ministry.', timestamp: '2026-10-15T11:30:00Z' },
-  { name: 'De Asis Family', headcount: 3, phone: '09171112233', prayer: 'Provision and guidance.', timestamp: '2026-10-16T08:15:00Z' },
-  { name: 'Estigoy Family', headcount: 2, phone: '09184445566', prayer: 'Joyful celebration.', timestamp: '2026-10-16T09:45:00Z' },
-  { name: 'Perlas Family', headcount: 4, phone: '09223334455', prayer: 'Faithful in every season.', timestamp: '2026-10-16T14:20:00Z' }
+  { name: 'Barrios Family', familyName: 'Barrios Family', headcount: 5, phone: '09123456789', contact: '09123456789', prayer: 'Thankful for God\'s grace and healing.', timestamp: '2026-10-15T10:00:00Z' },
+  { name: 'Tito Family', familyName: 'Tito Family', headcount: 4, phone: '09198765432', contact: '09198765432', prayer: 'Abundant blessings for the church ministry.', timestamp: '2026-10-15T11:30:00Z' },
+  { name: 'De Asis Family', familyName: 'De Asis Family', headcount: 3, phone: '09171112233', contact: '09171112233', prayer: 'Provision and guidance.', timestamp: '2026-10-16T08:15:00Z' },
+  { name: 'Estigoy Family', familyName: 'Estigoy Family', headcount: 2, phone: '09184445566', contact: '09184445566', prayer: 'Joyful celebration.', timestamp: '2026-10-16T09:45:00Z' },
+  { name: 'Perlas Family', familyName: 'Perlas Family', headcount: 4, phone: '09223334455', contact: '09223334455', prayer: 'Faithful in every season.', timestamp: '2026-10-16T14:20:00Z' }
 ];
 
 
@@ -698,12 +698,20 @@ export default function App() {
     }
   });
 
-  // Real-time Firestore Sync
+  // Real-time Firestore Sync & Seeding
   React.useEffect(() => {
     try {
       const qRsvps = query(collection(db, 'rsvps'));
-      const unsubRsvps = onSnapshot(qRsvps, (snapshot) => {
-        if (!snapshot.empty) {
+      const unsubRsvps = onSnapshot(qRsvps, async (snapshot) => {
+        if (snapshot.empty) {
+          try {
+            for (const rsvp of INITIAL_RSVPS) {
+              await addDoc(collection(db, 'rsvps'), rsvp);
+            }
+          } catch (err) {
+            console.error('Error seeding initial rsvps:', err);
+          }
+        } else {
           const loaded = snapshot.docs.map(doc => doc.data());
           setRsvps(loaded);
           try {
@@ -715,8 +723,21 @@ export default function App() {
       });
 
       const qTestimonies = query(collection(db, 'testimonies'));
-      const unsubTestimonies = onSnapshot(qTestimonies, (snapshot) => {
-        if (!snapshot.empty) {
+      const unsubTestimonies = onSnapshot(qTestimonies, async (snapshot) => {
+        if (snapshot.empty) {
+          try {
+            for (const note of INITIAL_TESTIMONIES) {
+              await addDoc(collection(db, 'testimonies'), {
+                name: note.name,
+                message: note.message,
+                date: note.date,
+                createdAt: new Date().toISOString()
+              });
+            }
+          } catch (err) {
+            console.error('Error seeding testimonies:', err);
+          }
+        } else {
           const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GratitudeNote));
           setNotes(loaded);
           try {
@@ -844,8 +865,10 @@ export default function App() {
 
     const newRsvp = {
       name: rsvpFamilyName,
+      familyName: rsvpFamilyName,
       headcount: rsvpHeadcount,
       phone: rsvpPhone,
+      contact: rsvpPhone,
       prayer: rsvpPrayer,
       timestamp: new Date().toISOString()
     };
