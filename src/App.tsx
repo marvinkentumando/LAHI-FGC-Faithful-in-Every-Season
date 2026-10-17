@@ -122,7 +122,7 @@ const PROGRAM_ITEMS: ProgramItem[] = [
     assigned: 'CMS Students',
     category: 'worship',
     categoryLabel: 'Choral / Musical Offering',
-    description: 'A special musical performance of thanksgiving rendered by our church children & youth.'
+    description: 'A special musical performance of thanksgiving rendered by our CMS Students.'
   },
   {
     id: 10,
@@ -1510,55 +1510,6 @@ export default function App() {
                 </div>
               </InteractiveTiltCard>
             </div>
-          </section>
-        </ScrollRevealCard>
-
-        {/* INTERACTIVE ACTION STRIP: Calendar & Sharing (Touch-Friendly Responsive Grid) */}
-        <ScrollRevealCard>
-          <section
-            id="interactive-tools"
-            className="py-6 sm:py-8 border-b border-[rgba(184,29,36,0.15)] grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
-          >
-            <a
-              href={googleCalendarUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between group min-h-[48px]"
-            >
-              <div>
-                <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Google Calendar</div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
-                  Add to Calendar
-                </div>
-              </div>
-              <ExternalLink className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
-            </a>
-
-            <button
-              onClick={handleDownloadICS}
-              className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between text-left group min-h-[48px]"
-            >
-              <div>
-                <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Apple & Outlook</div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
-                  Download .ICS
-                </div>
-              </div>
-              <BookmarkCheck className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
-            </button>
-
-            <button
-              onClick={handleShare}
-              className="p-4 border border-[rgba(184,29,36,0.2)] bg-white hover:bg-[#F4E8E8]/40 transition-colors flex items-center justify-between text-left group min-h-[48px]"
-            >
-              <div>
-                <div className="meta-mono text-[#B81D24] text-[0.55rem] sm:text-[0.6rem] mb-0.5">Community Link</div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#2D0A0A]">
-                  {shared ? 'Link Copied to Clipboard!' : 'Share Invitation'}
-                </div>
-              </div>
-              <Share2 className="w-4 h-4 text-[#B81D24] opacity-70 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
-            </button>
           </section>
         </ScrollRevealCard>
 
