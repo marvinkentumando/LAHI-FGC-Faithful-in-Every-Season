@@ -29,6 +29,7 @@ import {
   Pause
 } from 'lucide-react';
 import { HarvestAmbience } from './components/HarvestAmbience';
+import lahiChurchImg from './assets/images/lahi_church_sanctuary_1792169579144.jpg';
 
 interface ProgramItem {
   id: number;
@@ -1464,9 +1465,8 @@ export default function App() {
                   style={{ borderRadius: 0 }}
                 >
                   <img
-                    src="/src/assets/images/church_thanksgiving_hero_1792160970138.jpg"
-                    alt="Sanctuary prepared for Thanksgiving"
-                    referrerPolicy="no-referrer"
+                    src={lahiChurchImg}
+                    alt="Lahi Foursquare Gospel Church Sanctuary"
                     className="w-full h-full object-cover object-center filter contrast-[1.05]"
                   />
                   <div className="absolute bottom-0 inset-x-0 bg-[#2D0A0A]/85 backdrop-blur-xs text-white p-3.5 sm:p-4 border-t border-[#B81D24]/40 z-20">
