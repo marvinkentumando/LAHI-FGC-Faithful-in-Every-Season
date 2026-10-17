@@ -698,20 +698,12 @@ export default function App() {
     }
   });
 
-  // Real-time Firestore Sync & Seeding
+  // Real-time Firestore Sync
   React.useEffect(() => {
     try {
       const qRsvps = query(collection(db, 'rsvps'));
-      const unsubRsvps = onSnapshot(qRsvps, async (snapshot) => {
-        if (snapshot.empty) {
-          try {
-            for (const rsvp of INITIAL_RSVPS) {
-              await addDoc(collection(db, 'rsvps'), rsvp);
-            }
-          } catch (err) {
-            console.error('Error seeding initial rsvps:', err);
-          }
-        } else {
+      const unsubRsvps = onSnapshot(qRsvps, (snapshot) => {
+        if (!snapshot.empty) {
           const loaded = snapshot.docs.map(doc => doc.data());
           setRsvps(loaded);
           try {
@@ -723,21 +715,8 @@ export default function App() {
       });
 
       const qTestimonies = query(collection(db, 'testimonies'));
-      const unsubTestimonies = onSnapshot(qTestimonies, async (snapshot) => {
-        if (snapshot.empty) {
-          try {
-            for (const note of INITIAL_TESTIMONIES) {
-              await addDoc(collection(db, 'testimonies'), {
-                name: note.name,
-                message: note.message,
-                date: note.date,
-                createdAt: new Date().toISOString()
-              });
-            }
-          } catch (err) {
-            console.error('Error seeding testimonies:', err);
-          }
-        } else {
+      const unsubTestimonies = onSnapshot(qTestimonies, (snapshot) => {
+        if (!snapshot.empty) {
           const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GratitudeNote));
           setNotes(loaded);
           try {
