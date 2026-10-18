@@ -1841,7 +1841,7 @@ export default function App() {
               <div className="lg:col-span-6">
                 <div className="meta-mono text-[#B81D24] mb-2">Location & Gathering</div>
                 <h2 className="section-accent-title font-cormorant text-3xl sm:text-4xl font-normal text-[#2D0A0A] mb-4 sm:mb-6 pb-3">
-                  Lahi Sanctuary
+                  Lahi Foursquare Gospel Church
                 </h2>
                 <div className="space-y-3 sm:space-y-4 text-xs sm:text-sm text-[#2D0A0A]/80 font-light">
                   <p>
