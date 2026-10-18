@@ -1426,7 +1426,7 @@ export default function App() {
             className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center py-8 sm:py-14 lg:py-20 border-b border-[rgba(184,29,36,0.15)]"
           >
             {/* Left Column (7 cols on desktop, full width on mobile) */}
-            <div className="lg:col-span-7 order-2 lg:order-1">
+            <div className="lg:col-span-7 order-2 lg:order-1 text-center lg:text-left">
               <h1
                 className="font-cormorant text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-normal leading-tight sm:leading-[0.92] tracking-tight text-[#2D0A0A] mb-4 sm:mb-6"
                 style={{ textWrap: 'balance' }}
@@ -1434,22 +1434,20 @@ export default function App() {
                 Faithful in Every Season
               </h1>
 
-              <p className="text-sm sm:text-lg text-[#2D0A0A]/80 leading-relaxed font-light mb-6 max-w-xl">
+              <p className="text-sm sm:text-lg text-[#2D0A0A]/80 leading-relaxed font-light mb-6 max-w-xl mx-auto lg:mx-0">
                 You are cordially invited to our Annual Thanksgiving Day Celebration.
                 Let us lift our praise, witness His unshakeable mercies, and honor His
                 holy name together as one church family.
               </p>
 
               {/* Quick Scripture Excerpt */}
-              <blockquote className="font-cormorant italic text-base sm:text-xl text-[#2D0A0A]/90 border-l-2 border-[#B81D24] pl-3.5 sm:pl-4 py-1 mb-6 sm:mb-8 max-w-lg">
+              <blockquote className="font-cormorant italic text-base sm:text-xl text-[#2D0A0A]/90 border-l-2 lg:border-l-2 border-[#B81D24] pl-3.5 sm:pl-4 py-1 mb-6 sm:mb-8 max-w-lg mx-auto lg:mx-0 text-center lg:text-left">
                 “They are new every morning: great is thy faithfulness.”
                 <span className="block not-italic meta-mono text-[#B81D24] text-[0.6rem] sm:text-[0.68rem] mt-1.5">
                   Lamentations 3:22–23
                 </span>
               </blockquote>
 
-              {/* Live Event Countdown Timer */}
-              <LiveCountdown />
 
               {/* Responsive Action Buttons (Full width on mobile, inline on desktop) */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
@@ -1459,18 +1457,10 @@ export default function App() {
                 <a href="#program" className="btn-crimson-outline w-full sm:w-auto text-center">
                   View Order of Service
                 </a>
-                <button
-                  onClick={handleReplayEnvelope}
-                  className="btn-crimson-outline text-stone-600 border-stone-300 hover:border-[#B81D24] w-full sm:w-auto"
-                  title="View animated invitation envelope again"
-                >
-                  <Mail className="w-3.5 h-3.5 text-[#B81D24]" />
-                  <span>Envelope Intro</span>
-                </button>
               </div>
 
               {/* Key Speaker, Date & Time, and Where Details */}
-              <div className="mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-[rgba(184,29,36,0.15)] grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-[#2D0A0A]/70">
+              <div className="mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-[rgba(184,29,36,0.15)] grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-[#2D0A0A]/70 text-center sm:text-left">
                 <div>
                   <span className="meta-mono block text-[#2D0A0A]/50 mb-0.5 text-[0.55rem]">Speaker</span>
                   <span className="font-semibold text-[#2D0A0A]">Ptr. Kimuel Tito</span>
@@ -1499,17 +1489,16 @@ export default function App() {
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover object-center filter contrast-[1.05]"
                   />
-                  <div className="absolute bottom-0 inset-x-0 bg-[#2D0A0A]/85 backdrop-blur-xs text-white p-3.5 sm:p-4 border-t border-[#B81D24]/40 z-20">
-                    <div className="meta-mono text-amber-200 text-[0.55rem] sm:text-[0.6rem] mb-0.5">
-                      Lahi Foursquare Gospel Church
-                    </div>
-                    <div className="font-cormorant text-base sm:text-lg font-semibold leading-tight">
-                      Thanksgiving Sanctuary
-                    </div>
-                  </div>
                 </div>
               </InteractiveTiltCard>
             </div>
+          </section>
+        </ScrollRevealCard>
+
+        {/* DEDICATED COUNTDOWN SECTION */}
+        <ScrollRevealCard>
+          <section className="py-8 sm:py-12 border-b border-[rgba(184,29,36,0.15)] max-w-xl mx-auto">
+            <LiveCountdown />
           </section>
         </ScrollRevealCard>
 
